@@ -1,5 +1,5 @@
-from time import sleep
-from typing import Tuple
+from time import sleep, time
+from typing import Tuple, Union
 from math import cos, sin, pi, tau, atan2, sqrt, pow
 import cv2
 import numpy as np
@@ -8,13 +8,13 @@ LOG = False
 
 
 def find_1d_ranges(img, axis, limit=None, min_size=5):
-    range_start = None
+    range_start: Union[None, int] = None
     found = 0
     for position in range(img.shape[axis] - 1, -1, -1):
-        slice = img[:, position] if axis == 1 else img[position, :]
-        slice_sum = sum(slice > 0)
+        vert_or_horz_slice = img[:, position] if axis == 1 else img[position, :]
+        any_nonzero_pels = np.any(vert_or_horz_slice > 0)
         if range_start:
-            if slice_sum == 0:
+            if not any_nonzero_pels:
                 if range_start - position >= min_size:
                     found += 1
                     yield position, range_start
@@ -24,7 +24,7 @@ def find_1d_ranges(img, axis, limit=None, min_size=5):
 
                 range_start = None
         else:  # Not in a range
-            if slice_sum:
+            if any_nonzero_pels:
                 range_start = position
 
 
@@ -42,15 +42,19 @@ def find_center(reg0deg: Tuple[float, float], reg60deg: Tuple[float, float]):
     return (x1 + x2 + root3 * (y1 - y2)) / 2, (y1 + y2 + root3 * (x2 - x1)) / 2
 
 
-def frame_values():
+def process_frames():
     cap = cv2.VideoCapture('cpx.mov')
     ret, frame = cap.read()
+    height, width, layers = frame.shape
+    video = cv2.VideoWriter('decoded.mov', cv2.VideoWriter_fourcc(*'avc1'), 60, (width, height))
+
+    best_letter_value = None
+    message = ''
+
     while ret:
         gray_img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        scale = 0.3
-        img = cv2.resize(gray_img, (0, 0), fx=scale, fy=scale)
-        bright = cv2.inRange(img, 250, 255)
-        reg_pels = tuple(find_registration_pels(bright))
+        bright_areas = cv2.inRange(gray_img, 250, 255)
+        reg_pels = tuple(find_registration_pels(bright_areas))
         if len(reg_pels) == 2:
             reg0deg, reg60deg = reg_pels
             center = find_center(reg0deg, reg60deg)
@@ -62,31 +66,38 @@ def frame_values():
             def angle(power): return twelfth * (power + 4) + global_rotation
             bits = ((round(center[0] + cos(angle(power)) * radius),
                        round(center[1] + sin(angle(power)) * radius)) for power in range(5))
-            parts = (int(pow(2, 4-i)) * (1 if bright[b[1], b[0]] > 0 else 0) for i, b in enumerate(bits))
-            yield sum(parts)
+            parts = (int(pow(2, 4-i)) * (1 if bright_areas[b[1], b[0]] > 0 else 0) for i, b in enumerate(bits))
+            v = sum(parts)
+            if LOG and v > 0:
+                print(v, '', end='')
+            if v:
+                if best_letter_value is None or v > best_letter_value:
+                    best_letter_value = v
+            else:
+                if best_letter_value:
+                    largest = best_letter_value
+                    if LOG: print(largest)
+                    c = ' ' if largest == 27 else chr(largest + ord('a') - 1)
+                    end = '\n' if LOG else ''
+                    print(c, end=end)
+                    message += c
+                    best_letter_value = None
+            move_y = (frame.shape[0] / 2) - center[1]
+            move_x = (frame.shape[1] / 2) - center[0]
+            stabilization_xform_matrix = np.float32(
+                [[1, 0, move_x],
+                 [0, 1, move_y]]
+            )
+            stabilized_frame = cv2.warpAffine(frame, stabilization_xform_matrix, frame.shape[:2])
+            cv2.putText(stabilized_frame, message, (50, frame.shape[0] - 50),
+                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (200, 200, 100), 3)
+            video.write(stabilized_frame)
+
         ret, frame = cap.read()
     cap.release()
     cv2.destroyAllWindows()
+    video.release()
     return
 
 
-def likely_values():
-    batch = []
-    for v in frame_values():
-        if LOG and v > 0:
-            print(v, '', end='')
-        if v:
-            batch.append(v)
-        else:
-            if batch:
-                largest = max(batch)
-                if LOG: print(largest)
-                yield largest
-                batch = []
-
-
-a_offset = ord('a')
-for v in likely_values():
-    c = ' ' if v == 27 else chr(v + a_offset - 1)
-    end = '\n' if LOG else ''
-    print(c, end=end)
+process_frames()
