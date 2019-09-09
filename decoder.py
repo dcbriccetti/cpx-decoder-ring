@@ -7,7 +7,7 @@ from geometry import Geometry
 
 INPUT_VIDEO_FILENAME = 'media/cpx.mov'
 OUTPUT_VIDEO_FILENAME = 'media/decoded.mov'
-DECODED_VID_FPS = 30
+DECODED_VID_FPS = 60
 BRIGHT_AREA_RANGE = 250, 255
 LOG = True
 
