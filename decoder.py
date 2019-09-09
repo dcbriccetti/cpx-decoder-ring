@@ -5,8 +5,8 @@ import cv2
 import numpy as np
 from geometry import Geometry
 
-INPUT_VIDEO_FILENAME = 'cpx.mov'
-OUTPUT_VIDEO_FILENAME = 'decoded.mov'
+INPUT_VIDEO_FILENAME = 'media/cpx.mov'
+OUTPUT_VIDEO_FILENAME = 'media/decoded.mov'
 DECODED_VID_FPS = 30
 BRIGHT_AREA_RANGE = 250, 255
 LOG = True
@@ -72,7 +72,7 @@ def centered_frame(frame, center: Tuple[int, int]):
 
 def process_image_file():
     'Display the set pixels in a single image (for testing)'
-    frame = cv2.imread('cpx.png')
+    frame = cv2.imread('media/cpx.png')
     bright_areas = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), BRIGHT_AREA_RANGE[0], BRIGHT_AREA_RANGE[1])
     cv2.imwrite('bright.png', bright_areas)
     geom = Geometry(bright_areas)
