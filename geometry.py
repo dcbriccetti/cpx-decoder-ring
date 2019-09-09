@@ -31,7 +31,7 @@ class Geometry:
             def angle() -> float:
                 'return the angle, in radians, of the pel corresponding to the given power of 2'
                 starting_twelfth = power + 4
-                return -(tau / 12 * starting_twelfth) #+ self.global_rotation
+                return -(tau / 12 * starting_twelfth) + self.global_rotation
 
             a = angle()
             return (round(self.center[0] + cos(a) * self.radius),
