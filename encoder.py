@@ -7,7 +7,7 @@ cpx.pixels.auto_write = False
 num = 0
 white = 64, 64, 64
 for rp in (7, 9):
-    cpx.pixels[rp] = white
+    cpx.pixels[rp] = 0, 0, 32
 
 def display(num):
     for i in range(5):
@@ -17,13 +17,12 @@ def display(num):
     cpx.pixels.show()
 
 
-message = 'it is amazing that a computer can read this'
+message = 'this message was converted to binary and displayed on lights then read with computer vision and decoded'
 
 while True:
     for c in message:
         num = 27 if c == ' ' else ord(c) - ord('a') + 1
         display(num)
-        time.sleep(1/50)
         display(0)
         time.sleep(1/50)
     time.sleep(1)

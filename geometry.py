@@ -1,16 +1,19 @@
 'Module containing the Geometry class'
 
 from math import sqrt, atan2, tau, sin, cos
-from typing import Tuple, Union, Iterable
+from time import time
+from typing import Sequence, Tuple, List, Union, Iterable
+import cv2
 import numpy as np
 
 
 class Geometry:
     'Finds things in the image frames'
-    def __init__(self, bright_areas):
-        self.registration_pels = tuple(self._find_registration_pels(bright_areas))
+    def __init__(self, frame, reg_points_image):
+        self.registration_pels = tuple(self._find_registration_pels(reg_points_image))
         if self.registration_pels_found():
-            self.bright_areas = bright_areas
+            self.frame = frame
+            self.bright_areas = reg_points_image
             reg0deg, reg60deg = self.registration_pels
             self.center = self._find_center_from_registration_pels(reg0deg, reg60deg)
             dx = reg0deg[0] - self.center[0]
@@ -38,39 +41,23 @@ class Geometry:
                     round(self.center[1] + sin(a) * self.radius))
 
         col, row = pel_location()
-        on = self.bright_areas[row, col] > 0
+        on = np.all(self.frame[row, col] > 240)
         return on
 
     @staticmethod
-    def _find_registration_pels(image):
+    def _find_registration_pels(image) -> List[Tuple[int, int]]:
+        'Find the objects in the image and return the coordinates of the rightmost two'
+        p = cv2.SimpleBlobDetector_Params()
+        p.filterByColor = p.filterByConvexity = False
+        p.filterByArea = True
+        p.minArea = 100
+        detector = cv2.SimpleBlobDetector_create(p)
+        key_points = detector.detect(image)
+        def r(kp, i): return round(kp.pt[i])
+        coords = [(r(kp, 0), r(kp, 1)) for kp in key_points]
+        coords.sort(key=lambda t: t[0], reverse=True)
+        return coords[:2]
 
-        def bright_ranges(image, axis, limit=None, min_size=5) -> Iterable[Tuple[int, int]]:
-            'Return ranges (rectangular areas) where bright pixels are found'
-            range_start: Union[None, int] = None
-            found = 0
-            for position in range(image.shape[axis] - 1, -1, -1):
-                vert_or_horz_slice = image[:, position] if axis == 1 else image[position, :]
-                any_nonzero_pels = np.any(vert_or_horz_slice > 0)
-                if range_start:
-                    if not any_nonzero_pels:
-                        if range_start - position >= min_size:
-                            found += 1
-                            yield position, range_start
-
-                        if limit and found >= limit:
-                            return
-
-                        range_start = None
-                else:  # Not in a range
-                    if any_nonzero_pels:
-                        range_start = position
-
-        for left, right in bright_ranges(image, axis=1, limit=2):
-            top, bottom = tuple(bright_ranges(image[:, left:right], axis=0, limit=1))[0]
-            width:  int = right - left
-            height: int = bottom - top
-            pel_center: Tuple[int, int] = (round(left + width / 2), round(top + height / 2))
-            yield pel_center
 
     @staticmethod
     def _find_center_from_registration_pels(reg0deg: Tuple[float, float], reg60deg: Tuple[float, float]):

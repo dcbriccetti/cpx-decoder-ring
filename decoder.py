@@ -8,8 +8,9 @@ from geometry import Geometry
 INPUT_VIDEO_FILENAME = 'media/cpx.mov'
 OUTPUT_VIDEO_FILENAME = 'media/decoded.mov'
 DECODED_VID_FPS = 60
-BRIGHT_AREA_RANGE = 250, 255
-LOG = True
+REG_COLOR_RANGE = (240, 0, 0), (255, 255, 190)
+LOG = False
+SHOW_FRAMES = False
 
 
 def process_video():
@@ -25,9 +26,9 @@ def process_video():
     message = ''
 
     while read_return_code:
-        bright_areas = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
-            BRIGHT_AREA_RANGE[0], BRIGHT_AREA_RANGE[1])
-        geom = Geometry(bright_areas)
+        bright_areas = cv2.inRange(frame, REG_COLOR_RANGE[0], REG_COLOR_RANGE[1])
+        color_bright_areas = cv2.bitwise_and(frame, frame, mask=bright_areas)
+        geom = Geometry(frame, color_bright_areas)
 
         def on_powers() -> Iterable[int]:
             'Return those powers of two corresponding to the lit pels'
@@ -47,9 +48,13 @@ def process_video():
                     message += letter
                     greatest_sum_of_on_powers = None
             cf = centered_frame(frame, geom.center)
-            cv2.putText(cf, message, (50, frame.shape[0] - 50),
-                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (200, 200, 100), 3)
+            cv2.putText(cf, message, (30, frame.shape[0] - 50),
+                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 100), 2)
             video_out.write(cf)
+            if SHOW_FRAMES:
+                cv2.imshow('Bright', color_bright_areas)
+                cv2.imshow('Decoded', cf)
+                cv2.waitKey(0)
 
         read_return_code, frame = video_in.read()
 
@@ -73,7 +78,7 @@ def centered_frame(frame, center: Tuple[int, int]):
 def process_image_file():
     'Display the set pixels in a single image (for testing)'
     frame = cv2.imread('media/cpx.png')
-    bright_areas = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), BRIGHT_AREA_RANGE[0], BRIGHT_AREA_RANGE[1])
+    bright_areas = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), REG_COLOR_RANGE[0], REG_COLOR_RANGE[1])
     cv2.imwrite('bright.png', bright_areas)
     geom = Geometry(bright_areas)
     p = [power for power in range(5) if geom.pel_on(power)]
