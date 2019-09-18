@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+SHOW = True
 video_in = cv2.VideoCapture('media/drawing2.mov')
 read_return_code, frame = video_in.read()
 height, width = frame.shape[:2]
@@ -15,11 +16,6 @@ while read_return_code:
     masked = cv2.bitwise_and(hsv, hsv, mask=mask)
     if time_image is None:
         time_image = masked
-    cv2.imshow('Original', frame)
-    cv2.imshow('Mask', mask)
-    cv2.imshow('Pen cap', masked)
-    cv2.imshow('Timelapsed', time_image)
-    cv2.waitKey(0)
 
     p = cv2.SimpleBlobDetector_Params()
     p.filterByColor = False
@@ -28,6 +24,15 @@ while read_return_code:
     p.minArea = 2000
     detector = cv2.SimpleBlobDetector_create(p)
     key_points = detector.detect(mask)  # Blob detection here for future enhancements
+    print([p.pt for p in key_points])
+    if len(key_points) != 1:
+        if SHOW:
+            cv2.imshow('Original', frame)
+            cv2.imshow('Mask', mask)
+            cv2.imshow('Pen cap', masked)
+            cv2.imshow('Timelapsed', time_image)
+            cv2.waitKey(0)
+
 
     time_image = cv2.bitwise_or(time_image, masked)
     video_out.write(time_image)
