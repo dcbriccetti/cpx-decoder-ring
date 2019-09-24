@@ -12,11 +12,22 @@ YELLOW_MAX = (200, 255, 255)
 ORANGE_MIN = (50, 50, 235)
 ORANGE_MAX = (130, 130, 255)
 
+lower_bound = np.array([0, 0, 0])
+upper_bound = np.array([255, 255, 255])
+
 colors_by_command_key = {"r": RED, "g": GREEN, "b": BLUE}
 selected_color = RED
 
 cap = cv.VideoCapture(0)
 accumulator_frame = None
+
+def calibrate():
+    center_color = frame[fs[0]//2, fs[1]//2, :]
+    for i, ce in enumerate(center_color):
+        lower_bound[i] = max(ce - 50, 0)
+        upper_bound[i] = min(ce + 50, 255)
+    print(center_color)
+
 while True:
     ret, large_frame = cap.read()
     frame = cv.resize(large_frame, (0, 0), fx=0.5, fy=0.5)
@@ -24,7 +35,9 @@ while True:
     flipped = cv.flip(frame, 1)
     mask_orange = cv.inRange(flipped, ORANGE_MIN, ORANGE_MAX)
     mask_yellow = cv.inRange(flipped, YELLOW_MIN, YELLOW_MAX)
-    mask_all = cv.bitwise_or(mask_yellow, mask_orange)
+    mask_custom = cv.inRange(flipped, lower_bound, upper_bound)
+    mask_yo = cv.bitwise_or(mask_yellow, mask_orange)
+    mask_all = cv.bitwise_or(mask_yo, mask_custom)
     masked_input = cv.bitwise_and(flipped, flipped, mask=mask_all)
     if accumulator_frame is None:
         accumulator_frame = np.zeros(fs, dtype=np.uint8)
@@ -52,6 +65,8 @@ while True:
     if key != -1:
         if chr(key) == 'q':
             break
+        if chr(key) == 'c':
+            calibrate()
         color = colors_by_command_key.get(chr(key))
         if color:
             selected_color = color
