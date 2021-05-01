@@ -1,3 +1,5 @@
+from sys import exit
+from typing import List, Tuple
 import cv2 as cv
 import numpy as np
 
@@ -14,35 +16,45 @@ ranges = np.zeros((MAX_USERS, 2, 3), dtype=np.uint8)
 colors_by_command_key = {'r': RED, 'g': GREEN, 'b': BLUE, 'y': YELLOW, 'o': ORANGE}
 selected_colors = [RED, GREEN, BLUE, YELLOW, ORANGE]
 
-cap = cv.VideoCapture(0)
+cap = cv.VideoCapture(1)
+if not cap.isOpened():
+    print("Can't open that camera")
+    exit()
 accumulator_frame = None
 calibrating = False
 active_user = 0
 calibrated_user_indexes = set()
 
 
-def adjusted_mins_maxes():
-    center = resized_flipped_hsv[center_row - 5:center_row + 6, center_column - 5:center_column + 6, :]
-    mins  = [center[:, :, c].min() for c in range(3)]
-    maxes = [center[:, :, c].max() for c in range(3)]
+def adjusted_mins_maxes() -> Tuple[np.array, np.array]:
+    center: np.array = resized_flipped_hsv[center_row - 5:center_row + 6, center_column - 5:center_column + 6, :]
+    mins:  List[int] = [center[:, :, c].min() for c in range(3)]
+    maxes: List[int] = [center[:, :, c].max() for c in range(3)]
     for i in range(3):
-        mins[i] = max(0, mins[i] - 3)
+        mins [i] = max(  0, mins [i] - 3)
         maxes[i] = min(255, maxes[i] + 3)
+
+    mins [1] = mins [2] = 100
+    maxes[1] = maxes[2] = 255
+
     return np.array(mins), np.array(maxes)
 
 
 def calibrate():
     global calibrating
     calibrated_user_indexes.add(active_user)
-    l, u = adjusted_mins_maxes()
+    mins: np.ndarray
+    maxes: np.ndarray
+    mins, maxes = adjusted_mins_maxes()
     if not calibrating:
-        ranges[active_user, 0], ranges[active_user, 1] = l, u
+        ranges[active_user, 0] = mins
+        ranges[active_user, 1] = maxes
     else:
         for n in range(3):
-            if l[n] < ranges[active_user, 0, n]:
-                ranges[active_user, 0, n] = l[n]
-            if u[n] > ranges[active_user, 1, n]:
-                ranges[active_user, 1, n] = u[n]
+            if mins[n] < ranges[active_user, 0, n]:
+                ranges[active_user, 0, n] = mins[n]
+            if maxes[n] > ranges[active_user, 1, n]:
+                ranges[active_user, 1, n] = maxes[n]
     calibrating = True
 
 
@@ -54,7 +66,7 @@ p.minArea = 100
 detector = cv.SimpleBlobDetector_create(p)
 
 while True:
-    ret, large_frame = cap.read()
+    _, large_frame = cap.read()
     resized_unflipped = cv.resize(large_frame, (0, 0), fx=0.5, fy=0.5)
     resized_flipped = cv.flip(resized_unflipped, 1)
     resized_flipped_hsv = cv.cvtColor(resized_flipped, cv.COLOR_BGR2HSV)
